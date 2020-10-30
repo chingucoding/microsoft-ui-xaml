@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using Windows.UI.Xaml.Automation.Peers;
 using Windows.UI.Xaml.Automation;
 using Windows.UI.Xaml.Automation.Provider;
+using Windows.UI.Xaml.Controls;
 
 #if USING_TAEF
 using WEX.TestExecution;
@@ -166,6 +167,57 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests
                 return provider;
             }
         }
+
+        [TestMethod]
+        public void VerifyPaneFooterSizingRespected()
+        {
+            foreach (var property in new DependencyProperty[] { FrameworkElement.MinWidthProperty, FrameworkElement.WidthProperty })
+            {
+                TabView tabView = null;
+                Grid paneFooter = null;
+                RunOnUIThread.Execute(() =>
+                {
+                    paneFooter = new Grid();
+                    tabView = new TabView();
+
+                    var container = new Grid() {
+                        MaxWidth = 600
+                    };
+                    container.Children.Add(tabView);
+
+                    tabView.TabItems.Add(new TabViewItem());
+                    tabView.TabItems.Add(new TabViewItem());
+                    tabView.TabItems.Add(new TabViewItem());
+                    tabView.TabItems.Add(new TabViewItem());
+
+                    tabView.TabStripFooter = paneFooter;
+                    tabView.UpdateLayout();
+                    tabView.HorizontalAlignment = HorizontalAlignment.Stretch;
+                    tabView.Width = 600;
+
+                    container.UpdateLayout();
+                    Content = container;
+                    paneFooter.UpdateLayout();
+                });
+
+                IdleSynchronizer.Wait();
+
+                RunOnUIThread.Execute(() =>
+                {
+                    Verify.IsTrue(Math.Abs(600 - tabView.ActualWidth) < 1);
+                    paneFooter.SetValue(property, 300);
+                });
+                IdleSynchronizer.Wait();
+
+                RunOnUIThread.Execute(() =>
+                {
+                    var footerPresenter = VisualTreeHelper.GetParent(paneFooter) as FrameworkElement;
+                    Verify.IsTrue(Math.Abs(300 - footerPresenter.ActualWidth) < 1);
+                });
+            }
+        }
+
+
 
         private static void VerifyTabWidthVisualStates(IList<object> items, bool isCompact)
         {
