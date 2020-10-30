@@ -86,6 +86,7 @@ class TabView :
 
 public:
     TabView();
+    ~TabView();
 
     // IFrameworkElement
     void OnApplyTemplate();
@@ -108,6 +109,7 @@ public:
     void OnTabWidthModePropertyChanged(const winrt::DependencyPropertyChangedEventArgs& args);
     void OnSelectedIndexPropertyChanged(const winrt::DependencyPropertyChangedEventArgs& args);
     void OnSelectedItemPropertyChanged(const winrt::DependencyPropertyChangedEventArgs& args);
+    void OnTabStripFooterPropertyChanged(const winrt::DependencyPropertyChangedEventArgs& args);
 
     void OnItemsChanged(winrt::IInspectable const& item);
     void UpdateTabContent();
@@ -126,6 +128,8 @@ private:
     void OnScrollIncreaseClick(const winrt::IInspectable& sender, const winrt::RoutedEventArgs& args);
     void OnScrollViewerViewChanged(winrt::IInspectable const& sender, winrt::ScrollViewerViewChangedEventArgs const& args);
     void OnItemsPresenterSizeChanged(const winrt::IInspectable& sender, const winrt::SizeChangedEventArgs& args);
+
+    void OnComponentSizeChanged(const winrt::DependencyObject& /*sender*/, const winrt::DependencyProperty& args);
 
     void OnListViewLoaded(const winrt::IInspectable& sender, const winrt::RoutedEventArgs& args);
     void OnTabStripPointerExited(const winrt::IInspectable& sender, const winrt::PointerRoutedEventArgs& args);
@@ -178,6 +182,9 @@ private:
     tracker_ref<winrt::ItemsPresenter> m_itemsPresenter{ this };
 
     tracker_ref<winrt::Grid> m_shadowReceiver{ this };
+
+    int64_t m_footerMinWidthProperyChangedToken{};
+    int64_t m_footerWidthProperyChangedToken{};
 
     winrt::ListView::Loaded_revoker m_listViewLoadedRevoker{};
     winrt::ListView::PointerExited_revoker m_tabStripPointerExitedRevoker{};
