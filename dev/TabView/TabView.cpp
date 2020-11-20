@@ -664,11 +664,6 @@ void TabView::OnItemsChanged(winrt::IInspectable const& item)
         }
         else
         {
-            if (const auto newItem = TabItems().GetAt(args.Index()).try_as<TabViewItem>())
-            {
-                newItem->OnTabViewWidthModeChanged(TabWidthMode());
-                newItem->SetParentTabView(*this);
-            }
             UpdateTabWidths();
         }
     }
@@ -1054,7 +1049,12 @@ void TabView::UpdateSelectedIndex()
 {
     if (auto&& listView = m_listView.get())
     {
-        listView.SelectedIndex(SelectedIndex());
+        const auto selectedIndex = SelectedIndex();
+        // Ensure that the selected index is within range of the items
+        if (selectedIndex < static_cast<int>(listView.Items().Size()))
+        {
+            listView.SelectedIndex(selectedIndex);
+        }
     }
 }
 

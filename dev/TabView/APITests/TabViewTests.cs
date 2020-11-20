@@ -13,7 +13,8 @@ using System.Collections.Generic;
 using Windows.UI.Xaml.Automation.Peers;
 using Windows.UI.Xaml.Automation;
 using Windows.UI.Xaml.Automation.Provider;
-using Windows.UI.Xaml.Controls;
+using System.Collections.ObjectModel;
+using Microsoft.UI.Xaml.Controls.Primitives;
 
 #if USING_TAEF
 using WEX.TestExecution;
@@ -32,60 +33,99 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests
     [TestClass]
     public class TabViewTests : ApiTestBase
     {
+        [TestMethod]
+        public void VerifyCompactTabWidthVisualStates_ItemsMode()
+        {
+            VerifyCompactTabWidthVisualStates();
+        }
 
         [TestMethod]
-        public void VerifyCompactTabWidthVisualStates()
+        public void VerifyCompactTabWidthVisualStates_ItemsSourceMode()
+        {
+            VerifyCompactTabWidthVisualStates(isItemsSourceMode: true);           
+        }
+
+        private void VerifyCompactTabWidthVisualStates(bool isItemsSourceMode = false)
         {
             TabView tabView = null;
             RunOnUIThread.Execute(() =>
             {
                 tabView = new TabView();
-                Content = tabView;
+                SetupTabViewItems();
 
-                tabView.TabItems.Add(CreateTabViewItem("Item 0", Symbol.Add));
-                tabView.TabItems.Add(CreateTabViewItem("Item 1", Symbol.AddFriend));
-                tabView.TabItems.Add(CreateTabViewItem("Item 2"));
-
-                tabView.SelectedIndex = 0;
-                tabView.SelectedItem = tabView.TabItems[0];
-                (tabView.SelectedItem as TabViewItem).IsSelected = true;
-                Verify.AreEqual("Item 0", (tabView.SelectedItem as TabViewItem).Header);
-                Content.UpdateLayout();
-            });
-            // Waiting for layout
-            IdleSynchronizer.Wait();
-
-            RunOnUIThread.Execute(() =>
-            {
-                // Now set tab width mode
+                Log.Comment("Set TabWidthMode to compact");
                 tabView.TabWidthMode = TabViewWidthMode.Compact;
+
+                Log.Comment("Select a tab. In TabWidthMode compact, a selected tab will not be in compact state. We verify that behavior in this test");
+                tabView.SelectedIndex = 0;
+
+                Content = tabView;
             });
 
             IdleSynchronizer.Wait();
 
-            // Check if switching to compact updates all items correctly
             RunOnUIThread.Execute(() =>
             {
-                VerifyTabWidthVisualStates(tabView.TabItems, true);
-                tabView.TabItems.Add(CreateTabViewItem("Item 3"));
-            });
+                Log.Comment("Verify a selected tab exists");
+                VerifySelectedItem("Tab 0");
 
-            IdleSynchronizer.Wait();
+                Log.Comment("Verify the created TabView displays every tab in compact mode");
+                VerifyTabWidthVisualStates(tabView, tabView.TabItems, true);
 
-            // Check if a newly added item has correct visual states
-            RunOnUIThread.Execute(() =>
-            {
-                VerifyTabWidthVisualStates(tabView.TabItems, true);
+                Log.Comment("Verify that adding a new item creates a tab in compact mode");
+                AddItem("Tab 3");
+                Content.UpdateLayout();
+
+                VerifyTabWidthVisualStates(tabView, new List<object>() { tabView.TabItems[tabView.TabItems.Count - 1] }, true);
+
+                Log.Comment("Change the TabWidthMode to non compact and verify that every tab is no longer in compact mode");
                 tabView.TabWidthMode = TabViewWidthMode.Equal;
+                Content.UpdateLayout();
+
+                VerifyTabWidthVisualStates(tabView, tabView.TabItems, false);
+
+                Log.Comment("Change the TabWidthMode to compact and verify that every tab is now in compact mode");
+                tabView.TabWidthMode = TabViewWidthMode.Compact;
+                Content.UpdateLayout();
+
+                VerifyTabWidthVisualStates(tabView, tabView.TabItems, true);
             });
 
-            IdleSynchronizer.Wait();
-
-            // Switch back to non compact and check if every item has the correct visual state
-            RunOnUIThread.Execute(() =>
+            void SetupTabViewItems()
             {
-                VerifyTabWidthVisualStates(tabView.TabItems, false);
-            });
+                if (isItemsSourceMode)
+                {
+                    var tabItemsSource = new ObservableCollection<string>() { "Tab 0", "Tab 1", "Tab 2" };
+                    tabView.TabItemsSource = tabItemsSource;
+                }
+                else
+                {
+                    tabView.TabItems.Add(CreateTabViewItem("Tab 0", Symbol.Add));
+                    tabView.TabItems.Add(CreateTabViewItem("Tab 1", Symbol.AddFriend));
+                    tabView.TabItems.Add(CreateTabViewItem("Tab 2"));
+                }
+            }
+
+            void VerifySelectedItem(string expectedHeader)
+            {
+                object selectedItemHeader = isItemsSourceMode
+                    ? tabView.SelectedItem
+                    : (tabView.SelectedItem as TabViewItem).Header;
+
+                Verify.AreEqual(expectedHeader, selectedItemHeader);
+            }
+
+            void AddItem(string header)
+            {
+                if (isItemsSourceMode)
+                {
+                    ((ObservableCollection<string>)tabView.TabItemsSource).Add(header);
+                }
+                else
+                {
+                    tabView.TabItems.Add(CreateTabViewItem(header));
+                }
+            }
         }
 
         [TestMethod]
@@ -143,7 +183,7 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests
             RunOnUIThread.Execute(() =>
             {
                 var selectionItemProvider = GetProviderFromTVI(tvi0);
-                Verify.IsTrue(selectionItemProvider.IsSelected,"Item should be selected");
+                Verify.IsTrue(selectionItemProvider.IsSelected, "Item should be selected");
 
                 selectionItemProvider = GetProviderFromTVI(tvi1);
                 Verify.IsFalse(selectionItemProvider.IsSelected, "Item should not be selected");
@@ -151,7 +191,7 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests
                 Log.Comment("Change selection through automationpeer");
                 selectionItemProvider.Select();
                 Verify.IsTrue(selectionItemProvider.IsSelected, "Item should have been selected");
-                
+
                 selectionItemProvider = GetProviderFromTVI(tvi0);
                 Verify.IsFalse(selectionItemProvider.IsSelected, "Item should not be selected anymore");
 
@@ -169,68 +209,42 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests
         }
 
         [TestMethod]
-        public void VerifyPaneFooterSizingRespected()
+        public void VerifyTabViewWithoutTabsDoesNotCrash()
         {
-            foreach (var property in new DependencyProperty[] { FrameworkElement.MinWidthProperty, FrameworkElement.WidthProperty })
+            RunOnUIThread.Execute(() =>
             {
-                TabView tabView = null;
-                Grid paneFooter = null;
-                RunOnUIThread.Execute(() =>
-                {
-                    paneFooter = new Grid();
-                    tabView = new TabView();
+                TabView tabView = new TabView();
+                Content = tabView;
 
-                    var container = new Grid() {
-                        MaxWidth = 600
-                    };
-                    container.Children.Add(tabView);
+                // Creating a TabView without tabs should not crash the app.
+                Content.UpdateLayout();
 
-                    tabView.TabItems.Add(new TabViewItem());
-                    tabView.TabItems.Add(new TabViewItem());
-                    tabView.TabItems.Add(new TabViewItem());
-                    tabView.TabItems.Add(new TabViewItem());
+                var tabItemsSource = new ObservableCollection<string>() { "Tab 1", "Tab 2" };
+                tabView.TabItemsSource = tabItemsSource;
 
-                    tabView.TabStripFooter = paneFooter;
-                    tabView.UpdateLayout();
-                    tabView.HorizontalAlignment = HorizontalAlignment.Stretch;
-                    tabView.Width = 600;
-
-                    container.UpdateLayout();
-                    Content = container;
-                    paneFooter.UpdateLayout();
-                });
-
-                IdleSynchronizer.Wait();
-
-                RunOnUIThread.Execute(() =>
-                {
-                    Verify.IsTrue(Math.Abs(600 - tabView.ActualWidth) < 1);
-                    paneFooter.SetValue(property, 300);
-                });
-                IdleSynchronizer.Wait();
-
-                RunOnUIThread.Execute(() =>
-                {
-                    var footerPresenter = VisualTreeHelper.GetParent(paneFooter) as FrameworkElement;
-                    Verify.IsTrue(Math.Abs(300 - footerPresenter.ActualWidth) < 1);
-                });
-            }
+                // Clearing the ItemsSource should not crash the app.
+                Log.Comment("Clear the specified tab items source");
+                tabItemsSource.Clear();
+            });       
         }
 
-
-
-        private static void VerifyTabWidthVisualStates(IList<object> items, bool isCompact)
+        private static void VerifyTabWidthVisualStates(TabView tabView, IList<object> items, bool isCompact)
         {
+            var listView = VisualTreeUtils.FindVisualChildByName(tabView, "TabListView") as TabViewListView;
+
             foreach (var item in items)
             {
-                var tabItem = item as TabViewItem;
+                var tabItem = item is TabViewItem
+                    ? (TabViewItem)item
+                    : listView.ContainerFromItem(item) as TabViewItem;
+
                 var rootGrid = VisualTreeHelper.GetChild(tabItem, 0) as FrameworkElement;
 
                 foreach (var group in VisualStateManager.GetVisualStateGroups(rootGrid))
                 {
                     if (group.Name == "TabWidthModes")
                     {
-                        if(tabItem.IsSelected || !isCompact)
+                        if (tabItem.IsSelected || !isCompact)
                         {
                             Verify.AreEqual("StandardWidth", group.CurrentState.Name, "Verify that this tab item is rendering in standard width");
                         }
@@ -240,7 +254,6 @@ namespace Windows.UI.Xaml.Tests.MUXControls.ApiTests
                         }
                     }
                 }
-
             }
         }
 
