@@ -246,8 +246,8 @@ void TabView::OnTabStripFooterPropertyChanged(const winrt::DependencyPropertyCha
     }
     if (const auto newFooter = args.NewValue().try_as<winrt::FrameworkElement>())
     {
-        m_footerMinWidthProperyChangedToken = newFooter.RegisterPropertyChangedCallback(winrt::FrameworkElement::MinWidthProperty(), { this,&TabView::OnComponentSizeChanged });
-        m_footerWidthProperyChangedToken = newFooter.RegisterPropertyChangedCallback(winrt::FrameworkElement::WidthProperty(), { this,&TabView::OnComponentSizeChanged });
+        m_footerMinWidthProperyChangedToken = newFooter.RegisterPropertyChangedCallback(winrt::FrameworkElement::MinWidthProperty(), { this,&TabView::OnFooterSizeChanged });
+        m_footerWidthProperyChangedToken = newFooter.RegisterPropertyChangedCallback(winrt::FrameworkElement::WidthProperty(), { this,&TabView::OnFooterSizeChanged });
     }
 }
 
@@ -601,7 +601,7 @@ void TabView::OnItemsPresenterSizeChanged(const winrt::IInspectable& sender, con
     }
 }
 
-void TabView::OnComponentSizeChanged(const winrt::DependencyObject& /*sender*/, const winrt::DependencyProperty& args)
+void TabView::OnFooterSizeChanged(const winrt::DependencyObject& /*sender*/, const winrt::DependencyProperty& args)
 {
     UpdateTabWidths();
 }
